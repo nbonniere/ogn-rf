@@ -1,3 +1,14 @@
+
+#ifdef AIRSPY
+#define SBUFF SampleBuffer<int16_t>
+#define SDATA int16_t
+#include "airspysdr.h"     // SDR radio
+#else
+#define SBuff SampleBuffer<uint8_t>
+#define SDATA uint8_t
+#include "rtlsdr.h"     // SDR radio
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -12,7 +23,6 @@
 #include <vector>
 #include <algorithm>
 
-#include "rtlsdr.h"
 #include "buffer.h"
 #include "fft.h"
 #include "image.h"
@@ -224,7 +234,8 @@ int main(int argc, char **argv)
 
   printf("\n");
 
-  SampleBuffer<uint8_t>                   Input;
+//  SampleBuffer<uint8_t>                   Input;
+  SBUFF  Input;
   SampleBuffer< std::complex<FloatType> > Spectra;
   SampleBuffer<FloatType>                 Power;
   std::vector<FloatType> PPM_Values;
@@ -235,7 +246,8 @@ int main(int argc, char **argv)
   for(int Scan=0; Scan<Scans; Scan++, Freq+=FreqStep)
   { SDR.setCenterFreq(Freq);
     SDR.ResetBuffer();
-    int Samples=SDR.Read(Input, SamplesPerScan);                                    // acquire RF I/Q data
+//    int Samples=SDR.Read(Input, SamplesPerScan);                                    // acquire RF I/Q data
+    int Samples=SDR.Read(Input, SamplesPerScan, &SDR);                                    // acquire RF I/Q data
     // printf("SDR.Read(, %5.3fMHz) => %d samples\n", 1e-6*Freq, Samples);
     if(Samples<=0) { printf("SDR.Read(%5.1fMHz) failed\n", 1e-6*Freq); continue; }
     SlidingFFT(Spectra, Input, FFT, Window);                                        // process with sliding FFT

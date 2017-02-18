@@ -268,16 +268,19 @@ class RTLSDR
    int CancelAsync(void) { return rtlsdr_cancel_async(Device); }
 
    // read directly given number of samples (remember to ResetBuffer() !)
-   int Read(uint8_t *Buffer, int Samples)
+//   int Read(uint8_t *Buffer, int Samples)
+   int Read(SDATA *Buffer, int Samples, void* ctx)
    { Samples&=0xFFFFFF00;                 // number of samples must be a multiply of 256
      int BufferSize = 2*Samples;
      int ReadSize=0;
      if(rtlsdr_read_sync(Device, Buffer, BufferSize, &ReadSize)<0) return -1;
      return ReadSize/2; }
 
-   int Read(SampleBuffer<uint8_t> &Buffer, int Samples)
+//   int Read(SampleBuffer<uint8_t> &Buffer, int Samples)
+   int Read(SBUFF &Buffer, int Samples, void* ctx)
    { if(Buffer.Allocate(2,Samples)<=0) return 0;
-     int ReadSamples=Read(Buffer.Data, Samples);
+//     int ReadSamples=Read(Buffer.Data, Samples);
+     int ReadSamples=Read(Buffer.Data, Samples, ctx);
      double Time = getTime();
      if(ReadSamples>0)
      { Buffer.Full=ReadSamples*2;

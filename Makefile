@@ -1,6 +1,6 @@
 VERSION = 0.2.6
 
-# AIRSPY = 1
+AIRSPY = 1
 # USE_RPI_GPU_FFT = 1
 
 FLAGS = -Wall -O3 -ffast-math -DVERSION=$(VERSION)
@@ -23,19 +23,24 @@ endif
 
 ifdef AIRSPY
 FLAGS += -DAIRSPY
+SDR = airspysdr.h
+LIBS += -lairspy
+else
+SDR = rtlsdr.h
+LIBS += -lrtlsdr
 endif
 
 all:    gsm_scan ogn-rf r2fft_test
 
-ogn-rf:       Makefile ogn-rf.cc rtlsdr.h thread.h fft.h buffer.h image.h
-	g++ $(FLAGS) $(GPU_FLAGS) -o ogn-rf ogn-rf.cc $(GPU_SRC) $(LIBS) -lrtlsdr -lfftw3 -lfftw3f -lairspy
+ogn-rf:       Makefile ogn-rf.cc $(SDR) thread.h fft.h buffer.h image.h
+	g++ $(FLAGS) $(GPU_FLAGS) -o ogn-rf ogn-rf.cc $(GPU_SRC) $(LIBS) -lfftw3 -lfftw3f
 ifdef USE_RPI_GPU_FFT
 	sudo chown root ogn-rf
 	sudo chmod a+s  ogn-rf
 endif
 
-gsm_scan:       Makefile gsm_scan.cc rtlsdr.h fft.h buffer.h image.h
-	g++ $(FLAGS) $(GPU_FLAGS) -o gsm_scan gsm_scan.cc $(GPU_SRC) $(LIBS) -lrtlsdr -lfftw3 -lfftw3f
+gsm_scan:       Makefile gsm_scan.cc $(SDR) fft.h buffer.h image.h
+	g++ $(FLAGS) $(GPU_FLAGS) -o gsm_scan gsm_scan.cc $(GPU_SRC) $(LIBS) -lfftw3 -lfftw3f
 ifdef USE_RPI_GPU_FFT
 	sudo chown root gsm_scan
 	sudo chmod a+s gsm_scan

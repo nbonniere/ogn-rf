@@ -18,6 +18,16 @@
     along with this software.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef AIRSPY
+#define SBUFF SampleBuffer<int16_t>
+#define SDATA int16_t
+#include "airspysdr.h"     // SDR radio
+#else
+#define SBuff SampleBuffer<uint8_t>
+#define SDATA uint8_t
+#include "rtlsdr.h"     // SDR radio
+#endif
+
 #include <stdio.h>
 #include <unistd.h>
 #include <math.h>
@@ -28,7 +38,6 @@
 
 #include "thread.h"     // multi-thread stuff
 #include "fft.h"        // Fast Fourier Transform
-#include "rtlsdr.h"     // SDR radio
 
 #define QUOTE(name) #name
 #define STR(macro) QUOTE(macro)
@@ -89,7 +98,8 @@ class RF_Acq                                    // acquire wideband (1MHz) RF da
    int  BiasTee;                                // [bool] T-bias for external LNA power
    int  FreqCorr;                               // [ppm] frequency correction applied to the Rx chip
    RTLSDR SDR;                                  // SDR receiver (DVB-T stick)
-   ReuseObjectQueue< SampleBuffer<uint8_t> > OutQueue; // OGN sample batches are sent there
+//   ReuseObjectQueue< SampleBuffer<uint8_t> > OutQueue; // OGN sample batches are sent there
+   ReuseObjectQueue< SBUFF > OutQueue; // OGN sample batches are sent there
 
    Thread Thr;                                  // acquisition thread
    volatile int StopReq;                        // request to stop the acquisition thread
@@ -105,7 +115,8 @@ class RF_Acq                                    // acquire wideband (1MHz) RF da
    static const int GSM_LowEdge = 925100000;    // [Hz] E-GSM-900 band, excluding the guards of 100kHz
    static const int GSM_UppEdge = 959900000;    // [Hz]
    static const int GSM_ScanStep =   800000;    // [Hz]
-   ReuseObjectQueue< SampleBuffer<uint8_t> > GSM_OutQueue; // GSM sample batches are sent there
+//   ReuseObjectQueue< SampleBuffer<uint8_t> > GSM_OutQueue; // GSM sample batches are sent there
+   ReuseObjectQueue< SBUFF > GSM_OutQueue; // GSM sample batches are sent there
 
    MessageQueue<Socket *>  RawDataQueue;        // sockets send to this queue should be written with a most recent raw data
 
@@ -205,9 +216,10 @@ class RF_Acq                                    // acquire wideband (1MHz) RF da
          if( ReadGSM || (QueueSize()>1) ) SamplesToRead/=2; // when GSM calibration or data is not being processed fast enough we only read half-time
          if(WaitTime<0.200)
          { usleep((int)floor(1e6*WaitTime+0.5));                              // wait right before the time slot starts
-           SampleBuffer<uint8_t> *Buffer = OutQueue.New();                    // get the next buffer to fill with raw I/Q data
+//           SampleBuffer<uint8_t> *Buffer = OutQueue.New();                    // get the next buffer to fill with raw I/Q data
+           SBUFF *Buffer = OutQueue.New();                    // get the next buffer to fill with raw I/Q data
            SDR.ResetBuffer();                                                 // needed before every Read()
-           int Read=SDR.Read(*Buffer, SamplesToRead);                         // read the time slot raw RF data
+           int Read=SDR.Read(*Buffer, SamplesToRead, &SDR);                         // read the time slot raw RF data
            Buffer->Freq += CurrCenterFreq * (1e-6*GSM_FreqCorr);              // correct the frequency (sign ?)
            if(OGN_SaveRawData>0)
            { time_t Time=(time_t)floor(Buffer->Time);
@@ -240,9 +252,10 @@ class RF_Acq                                    // acquire wideband (1MHz) RF da
              SDR.setTunerGain(GSM_Gain);
              GSM_FreqCorr-=(FreqCorr-SDR.getFreqCorrection());
              SDR.setFreqCorrection(FreqCorr);
-             SampleBuffer<uint8_t> *Buffer = GSM_OutQueue.New();
+//             SampleBuffer<uint8_t> *Buffer = GSM_OutQueue.New();
+             SBUFF *Buffer = GSM_OutQueue.New();
              SDR.ResetBuffer();
-             int Read=SDR.Read(*Buffer, GSM_SamplesPerRead);
+             int Read=SDR.Read(*Buffer, GSM_SamplesPerRead, &SDR);
              // printf("RF_Acq.Exec() ...(GSM) SDR.Read() => %d, Time=%16.3f, Freq=%6.1fMHz\n", Read, Buffer->Time, 1e-6*Buffer->Freq);
              if(Read>0)
              { if(GSM_OutQueue.Size()<3) GSM_OutQueue.Push(Buffer);
@@ -268,7 +281,7 @@ class RF_Acq                                    // acquire wideband (1MHz) RF da
          { printf("RF_Acq.Exec() ... SDR.Open(%d, , ) fails, retry after 1 sec\n", Index); usleep(1000000); }
          else
          { SDR.setOffsetTuning(OffsetTuning);
-           SDR.setBiasTee(BiasTee);
+//           SDR.setBiasTee(BiasTee);
            SDR.setTunerGainMode(OGN_GainMode);
            SDR.setTunerGain(OGN_Gain); }
            SDR.setFreqCorrection(FreqCorr);
@@ -350,7 +363,8 @@ template <class Float>
      while(!StopReq)
      { if(!Enable) { sleep(1); continue; }
        double ExecTime=getCPU();
-       SampleBuffer<uint8_t> *InpBuffer = RF->OutQueue.Pop();   // here we wait for a new data batch
+//       SampleBuffer<uint8_t> *InpBuffer = RF->OutQueue.Pop();   // here we wait for a new data batch
+       SBUFF *InpBuffer = RF->OutQueue.Pop();   // here we wait for a new data batch
        // printf("Inp_Filter.Exec() ... Input(%5.3fMHz, %5.3fsec, %dsamples)\n", 1e-6*InpBuffer->Freq, InpBuffer->Time, InpBuffer->Full/2);
        SampleBuffer< std::complex<Float> > *OutBuffer = OutQueue.New();
        ToneFilt.Process(OutBuffer, InpBuffer);
@@ -474,7 +488,8 @@ template <class Float>
        }
        else
 #endif
-       { SampleBuffer<uint8_t> *InpBuffer = RF->OutQueue.Pop(); // here we wait for a new data batch
+//       { SampleBuffer<uint8_t> *InpBuffer = RF->OutQueue.Pop(); // here we wait for a new data batch
+       { SBUFF *InpBuffer = RF->OutQueue.Pop(); // here we wait for a new data batch
          // printf("Inp_FFT.Exec() ... (%5.3fMHz, %5.3fsec, %dsamples)\n", 1e-6*InpBuffer->Freq, InpBuffer->Time, InpBuffer->Full/2);
          SlidingFFT(OutBuffer, *InpBuffer, FFT, Window);  // Process input samples, produce FFT spectra
          RF->OutQueue.Recycle(InpBuffer);
@@ -552,7 +567,8 @@ template <class Float>
    { // printf("GSM_FFT.Exec() ... Start\n");
      while(!StopReq)
      { double ExecTime=getCPU();
-       SampleBuffer<uint8_t> *InpBuffer = RF->GSM_OutQueue.Pop();
+//       SampleBuffer<uint8_t> *InpBuffer = RF->GSM_OutQueue.Pop();
+       SBUFF *InpBuffer = RF->GSM_OutQueue.Pop();
        // printf("GSM_FFT.Exec() ... (%5.3fMHz, %5.3fsec, %dsamples)\n", 1e-6*InpBuffer->Freq, InpBuffer->Time, InpBuffer->Full/2);
        SlidingFFT(Spectra, *InpBuffer, FFT, Window);
        SpectraPower(Power, Spectra);

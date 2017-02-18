@@ -40,7 +40,8 @@ template <class Float>
      FwdFFT.SetSineWindow(Window, FFTsize, (Float)(1.0/sqrt(FFTsize)) );
      return 1; }
 
-   int Process(SampleBuffer< std::complex<Float> > *OutBuffer, SampleBuffer<uint8_t> *InpBuffer)
+//   int Process(SampleBuffer< std::complex<Float> > *OutBuffer, SampleBuffer<uint8_t> *InpBuffer)
+   int Process(SampleBuffer< std::complex<Float> > *OutBuffer, SBUFF *InpBuffer)
    { Pulses=0;
      SlidingFFT(SpectraBuffer, *InpBuffer, FwdFFT, Window);   // Process input samples, produce FFT spectra
      SpectraPower(SpectraPwr, SpectraBuffer);                 // calculate spectra power
