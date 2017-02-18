@@ -1,5 +1,6 @@
 VERSION = 0.2.6
 
+# AIRSPY = 1
 # USE_RPI_GPU_FFT = 1
 
 FLAGS = -Wall -O3 -ffast-math -DVERSION=$(VERSION)
@@ -16,13 +17,18 @@ endif
 
 ifdef USE_RPI_GPU_FFT
 GPU_FLAGS = -DUSE_RPI_GPU_FFT
-GPU_SRC   = mailbox.c gpu_fft.c gpu_fft_twiddles.c gpu_fft_shaders.c
+GPU_SRC   = mailbox.c gpu_fft.c gpu_fft_base.c gpu_fft_twiddles.c gpu_fft_shaders.c
+LIBS += -ldl
+endif
+
+ifdef AIRSPY
+FLAGS += -DAIRSPY
 endif
 
 all:    gsm_scan ogn-rf r2fft_test
 
 ogn-rf:       Makefile ogn-rf.cc rtlsdr.h thread.h fft.h buffer.h image.h
-	g++ $(FLAGS) $(GPU_FLAGS) -o ogn-rf ogn-rf.cc $(GPU_SRC) $(LIBS) -lrtlsdr -lfftw3 -lfftw3f
+	g++ $(FLAGS) $(GPU_FLAGS) -o ogn-rf ogn-rf.cc $(GPU_SRC) $(LIBS) -lrtlsdr -lfftw3 -lfftw3f -lairspy
 ifdef USE_RPI_GPU_FFT
 	sudo chown root ogn-rf
 	sudo chmod a+s  ogn-rf
