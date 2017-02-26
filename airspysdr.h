@@ -113,6 +113,7 @@ class RTLSDR
 //   uint8_t* DestBufferPtr;  // destination buffer
    SDATA* DestBufferPtr;  // destination buffer
    int desiredSampleCount;
+   int skipSampleCount;
    void* rx_ctx;
 
   public:
@@ -749,11 +750,24 @@ class RTLSDR
    // airspy callback with 48K or 64K samples depending on sample type
 //   int rx_callback(airspy_transfer_t* transfer) {
    int ClassAirspyCallback(airspy_transfer_t* transfer) {                              // callback but already in this class instance
-
+     if (desiredSampleCount == 0) { // do nothing until count > 0
+	   return 0;
+	 }  
      int SampleType = transfer->sample_type;
+//     int SamplesReceived = transfer->sample_count;
      int SamplesReceived = transfer->sample_count;
-     void* SrcBufferPtr = transfer->samples;
+     SDATA* SrcBufferPtr = (SDATA*)transfer->samples;
 // printf("Callback %d %d\n", SamplesReceived, desiredSampleCount);
+     if (skipSampleCount > 0) {
+       if (SamplesReceived > skipSampleCount) {
+	     SamplesReceived -= skipSampleCount;
+	     SrcBufferPtr += skipSampleCount * 2;
+  	   skipSampleCount = 0;
+       } else {
+         skipSampleCount -= SamplesReceived;
+         return 0;
+       }
+     }
      if (SamplesReceived > desiredSampleCount) {
        SamplesReceived = desiredSampleCount;
      }
@@ -799,7 +813,7 @@ class RTLSDR
 
      if (desiredSampleCount == 0) {  // all done ?
 //     if (0 == 0) {  // all done ?
-       airspy_stop_rx(Device);
+//       airspy_stop_rx(Device);
 	   BufferWait.Signal();  // buffer available
      }
 	 return 0;
@@ -811,9 +825,11 @@ class RTLSDR
      Samples &= 0xFFFFFF00;               // number of samples must be a multiple of 256
 
 	 // set up callback variables
-     desiredSampleCount = Samples;
      DestBufferPtr = Buffer;
+     skipSampleCount = 24000;    // skip initial samples
+     desiredSampleCount = Samples;
 
+	 if (airspy_is_streaming(Device) != AIRSPY_TRUE) {
 	 // start the airspy async read process
 //     int result = airspy_start_rx(Device, rx_callback, NULL);
      int result = airspy_start_rx(Device, (airspy_sample_block_cb_fn)StaticAirspyCallback, ctx);
@@ -822,6 +838,7 @@ class RTLSDR
 //       return -1;
        return result;
      }
+	 }
      BufferWait.Lock();
 	 // wait until buffer filled
 	 BufferWait.Wait();
