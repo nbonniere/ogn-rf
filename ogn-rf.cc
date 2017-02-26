@@ -203,7 +203,8 @@ class RF_Acq                                    // acquire wideband (1MHz) RF da
      while(!StopReq)
      { if(SDR.isOpen())                                                    // if device is already open
        { double Now  = SDR.getTime();
-         int    IntTimeNow = (int)floor(Now); int ReadGSM = (IntTimeNow%20) == 0; // do the GSM calibration every 20 seconds
+         int    IntTimeNow = (int)floor(Now); 
+		 int ReadGSM = ( ((IntTimeNow % 20) == 0) & (GSM_Gain != 0) ); // do the GSM calibration every 20 seconds
 
          int NextCenterFreq = OGN_CenterFreq;
          if(OGN_FreqHopChannels)
