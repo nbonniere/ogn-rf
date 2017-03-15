@@ -841,13 +841,19 @@ class RTLSDR
 	 }
      BufferWait.Lock();
 	 // wait until buffer filled
-	 BufferWait.Wait();
+//	 BufferWait.Wait();
+	 int WaitResult = BufferWait.TimedWait(1000000);
      BufferWait.Unlock();
 //     airspy_stop_rx(Device);
 // printf("Go\n");
- printf("Go %d\n", Samples);
+// printf("Go %d\n", Samples);
 	 
-     return Samples;    // I and Q, each 2 bytes
+	 if (WaitResult == 0) {
+       return Samples;    // I and Q, each 2 bytes
+	 } else {
+ printf("Read time-out\n");
+	   return -1;         // time out, something went wrong
+     }	 
    }
 
 } ;
