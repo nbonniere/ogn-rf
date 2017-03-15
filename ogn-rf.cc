@@ -106,6 +106,7 @@ class RF_Acq                                    // acquire wideband (1MHz) RF da
 
    PulseFilter PulseFilt;
 
+   int FailCount;     // counts SDR failures and triggers script file
    static const int GSM_GainMode = 1;           // Manual gain mode for GSM
    int GSM_Gain;                                // [0.1dB] Rx gain for GSM frequency calibration
    int GSM_CenterFreq;                          // [Hz] should be selected to cover at lease one broadcast channel in the area
@@ -278,8 +279,17 @@ class RF_Acq                                    // acquire wideband (1MHz) RF da
        { int Index=(-1);
          if(DeviceSerial[0]) Index=SDR.getDeviceIndexBySerial(DeviceSerial);
          if(Index<0) Index=DeviceIndex;
-         if(SDR.Open(Index, OGN_CenterFreq, SampleRate)<0)                    // try to open it
-         { printf("RF_Acq.Exec() ... SDR.Open(%d, , ) fails, retry after 1 sec\n", Index); usleep(1000000); }
+         if(SDR.Open(Index, OGN_CenterFreq, SampleRate)<0) {                    // try to open it
+		   printf("RF_Acq.Exec() ... SDR.Open(%d, , ) fails, retry after 1 sec\n", Index); 
+           FailCount++;
+           if (FailCount > 10) {
+		     FailCount = 0;
+             printf("RF_Acq.Exec() Execute ERROR script.\n");
+             system("./ERROR.sh");
+           } else { 
+		     usleep(1000000); 
+		   }	 
+		 }
          else
          { SDR.setOffsetTuning(OffsetTuning);
 //           SDR.setBiasTee(BiasTee);
